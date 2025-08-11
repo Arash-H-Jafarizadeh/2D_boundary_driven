@@ -512,80 +512,10 @@ def circuit_simulation(max_time_steps, system_dimensions, physical_couplings, **
 
 
 
-def normal_simulation(max_time_steps, dimensions, couplings, **Kwargs):
-    # function = Kwargs.get('observable', particle_counts)
-    ini_config = Kwargs.get('initial_state', np.resize( [0,1], np.prod(dimensions)) )
-    K_rate = Kwargs.get('driving_rate', 0.05)
-    dt = Kwargs.get('dt', 0.03)
-    
-    Lx, Ly = dimensions    
-    L = Lx * Ly   
-    
-    ham = Hamiltonian_2d( couplings, dimensions, **Kwargs)
-
-    N_0 = op(+1, 0, L) @ op(-1, 0, L) 
-    N_L = op(+1, L-1, L) @ op(-1, L-1, L) 
-
-    ini_state = config_state( ini_config )#.toarray()   
-
-    # output_array = []
-    output_N = np.empty((max_time_steps, L), dtype=np.float64) #[]
-    output_J = np.empty((max_time_steps, 2*L-Lx-Ly, 3), dtype=np.float64) #[]
-    
-    # output_C = np.empty((max_time_steps, L, L), dtype=np.float64) #[]
-    # output_NN = np.empty((max_time_steps, L, L), dtype=np.float64) #[]
-    
-    kraus_indexes = np.empty((max_time_steps,), dtype=np.int8) #[]
-    for step in range(max_time_steps):
-        # obsrv = function(ini_state, (Lx, Ly), **Kwargs)
-        # output_array.append(obsrv)        
-        
-        obsr_N = particle_counts(ini_state, (Lx, Ly), **Kwargs)
-        output_N[step] = obsr_N        #.append(obsr_N)        
-        obsr_J = resolved_currents_dict(ini_state, (Lx, Ly), **Kwargs)
-        output_J[step] = obsr_J #.append(obsr_J)        
-        
-        # obsr_C = correlation(ini_state, (Lx, Ly))
-        # output_C[step] = obsr_C        
-        # obsr_NN = density_correlation(ini_state, (Lx, Ly))
-        # output_NN[step] = obsr_NN #.append(obsr_J)        
-        
-        ini_state = sps.linalg.expm_multiply(-1j* dt * ham, ini_state) #type:ignore #U_dt @ ini_state
-
-
-        n0 = (ini_state.conj() @ N_0 @ ini_state ).real 
-        nL = (ini_state.conj() @ N_L @ ini_state ).real 
-        n0nL = (ini_state.conj() @ N_0 @ N_L @ ini_state ).real
-        
-        krs_probs = [(1-K_rate)**2, K_rate*(1-K_rate)*(1-n0), K_rate*(1-K_rate)*n0,
-                    K_rate*(1-K_rate)*(1-nL), K_rate*K_rate*(1-n0-nL+n0nL), K_rate*K_rate*(n0-n0nL),
-                    K_rate*(1-K_rate)*nL, K_rate*K_rate*(nL-n0nL), K_rate*n0nL ]
-        
-        krs_rates = np.cumsum(krs_probs)
-        
-        coin = np.random.uniform(0,1)  
-                
-        index = len(krs_rates[krs_rates < coin])
-        ini_state = kraus_operator(index, L, **Kwargs) @ ini_state
-        
-        norm = np.linalg.norm(ini_state) #np.real(np.sqrt( np.real(ini_state @ ini_state.conj()) ))
-        
-        ini_state = 1/norm * ini_state
-        
-        ##### ~ gathering kraus stats
-        kraus_indexes[step] = index #.append(index) #index_set)  
-        # kraus_probabilities.append(krs_prbb[index])  
-        # kraus_norms.append(norm)  
-        
-    return(output_N, output_J, kraus_indexes)#, output_C, output_NN)
-
-
-
-
-# def hermitian_simulation(max_time_steps, dimensions, couplings, **Kwargs):
-#     function = Kwargs.get('observable', particle_counts)
+# def normal_simulation(max_time_steps, dimensions, couplings, **Kwargs):
+#     # function = Kwargs.get('observable', particle_counts)
 #     ini_config = Kwargs.get('initial_state', np.resize( [0,1], np.prod(dimensions)) )
-#     K_rate = Kwargs.get('driving_rate', 0.5)
+#     K_rate = Kwargs.get('driving_rate', 0.05)
 #     dt = Kwargs.get('dt', 0.03)
     
 #     Lx, Ly = dimensions    
@@ -602,24 +532,30 @@ def normal_simulation(max_time_steps, dimensions, couplings, **Kwargs):
 #     output_N = np.empty((max_time_steps, L), dtype=np.float64) #[]
 #     output_J = np.empty((max_time_steps, 2*L-Lx-Ly, 3), dtype=np.float64) #[]
     
+#     # output_C = np.empty((max_time_steps, L, L), dtype=np.float64) #[]
+#     # output_NN = np.empty((max_time_steps, L, L), dtype=np.float64) #[]
+    
 #     kraus_indexes = np.empty((max_time_steps,), dtype=np.int8) #[]
-
 #     for step in range(max_time_steps):
-        
 #         # obsrv = function(ini_state, (Lx, Ly), **Kwargs)
 #         # output_array.append(obsrv)        
         
 #         obsr_N = particle_counts(ini_state, (Lx, Ly), **Kwargs)
-#         output_N[step] = obsr_N      #append(obsr_N)        
+#         output_N[step] = obsr_N        #.append(obsr_N)        
 #         obsr_J = resolved_currents_dict(ini_state, (Lx, Ly), **Kwargs)
-#         output_J[step] = obsr_J      #append(obsr_J)        
+#         output_J[step] = obsr_J #.append(obsr_J)        
         
-#         ini_state = sps.linalg.expm_multiply(-1j* dt * ham, ini_state) #type: ignore  #U_dt @ ini_state
+#         # obsr_C = correlation(ini_state, (Lx, Ly))
+#         # output_C[step] = obsr_C        
+#         # obsr_NN = density_correlation(ini_state, (Lx, Ly))
+#         # output_NN[step] = obsr_NN #.append(obsr_J)        
+        
+#         ini_state = sps.linalg.expm_multiply(-1j* dt * ham, ini_state) #type:ignore #U_dt @ ini_state
 
-        
-#         n0 = (ini_state @ N_0 @ ini_state.conj() ).real 
-#         nL = (ini_state @ N_L @ ini_state.conj() ).real 
-#         n0nL = (ini_state @ N_0 @ N_L @ ini_state.conj() ).real
+
+#         n0 = (ini_state.conj() @ N_0 @ ini_state ).real 
+#         nL = (ini_state.conj() @ N_L @ ini_state ).real 
+#         n0nL = (ini_state.conj() @ N_0 @ N_L @ ini_state ).real
         
 #         krs_probs = [(1-K_rate)**2, K_rate*(1-K_rate)*(1-n0), K_rate*(1-K_rate)*n0,
 #                     K_rate*(1-K_rate)*(1-nL), K_rate*K_rate*(1-n0-nL+n0nL), K_rate*K_rate*(n0-n0nL),
@@ -630,194 +566,90 @@ def normal_simulation(max_time_steps, dimensions, couplings, **Kwargs):
 #         coin = np.random.uniform(0,1)  
                 
 #         index = len(krs_rates[krs_rates < coin])
-#         # ini_state = krs_operatos[index] @ ini_state
-#         ini_state = hraus_operator(index, L, **Kwargs) @ ini_state
+#         ini_state = kraus_operator(index, L, **Kwargs) @ ini_state
         
 #         norm = np.linalg.norm(ini_state) #np.real(np.sqrt( np.real(ini_state @ ini_state.conj()) ))
+        
 #         ini_state = 1/norm * ini_state
         
 #         ##### ~ gathering kraus stats
-#         kraus_indexes[step] = index # kraus_indexes.append(index) #index_set)  
+#         kraus_indexes[step] = index #.append(index) #index_set)  
 #         # kraus_probabilities.append(krs_prbb[index])  
 #         # kraus_norms.append(norm)  
         
-#         ##### ~ gathering In/Out flow stats
-#         # in_out_flow.append([ particle_In[index], particle_Out[index] ])  
-
-#     return(output_N, output_J, kraus_indexes)
+#     return(output_N, output_J, kraus_indexes)#, output_C, output_NN)
 
 
 
-
-
-
-
-
-
-
-
-# ########## notes to self (20250516): I dont think it worth it to make a function for time simulation. Doing a manual script may be much faster easier
-def run_simulation(time_list, dimensions, couplings, **Kwargs):
-    function = Kwargs.get('observable', particle_counts)
-    ini_state = Kwargs.get('initial_state', config_state( np.resize( [0,1], np.prod(dimensions)) ))
-    K_rate = Kwargs.get('driving_rate', 0.5)
-    hermitian_kraus = Kwargs.get('hermitian_kraus', False)
+def normal_simulation(max_time_steps, system_dimensions, physical_couplings, **Kwargs):
+    # function = Kwargs.get('observable', particle_counts)
+    circ_simu = Kwargs.get('circuit_simulation', False)
+    krs_function = Kwargs.get('kraus_function', kraus_operator)
+    ini_config = Kwargs.get('initial_state', np.resize( [0,1], np.prod(system_dimensions)) )
+    K_rate = Kwargs.get('driving_rate', 0.25)
+    dt = Kwargs.get('dt', 0.03) #Kwargs.get('dt', time_list[-1]/len(time_list))
     
-    Lx, Ly = dimensions    
-    L = Lx * Ly
+    Lx, Ly = system_dimensions    
+    L = Lx * Ly   
     
-    dt = time_list[-1]/len(time_list)
-    
-    ham = Hamiltonian_2d( couplings, dimensions, **Kwargs)
-    
-    U_dt = sps.linalg.expm(-1j * ham *dt) # type: ignore
+    if circ_simu:
+        ham1, ham2, ham3, ham4 = trotter_circuit_2d(physical_couplings, system_dimensions, **Kwargs)
+    else:    
+        ham = Hamiltonian_2d( physical_couplings, system_dimensions, **Kwargs)
 
     N_0 = op(+1, 0, L) @ op(-1, 0, L) 
     N_L = op(+1, L-1, L) @ op(-1, L-1, L) 
 
-    ini_state = ini_state.toarray()   
+    ini_state = config_state( ini_config )#.toarray()   
     
-    # krs_operatos = [np.eye(2**L), op(+1,0,L), np.eye(2**L), np.eye(2**L), op(+1,0,L), np.eye(2**L), op(-1,L-1,L), op(+1,0,L) @ op(-1,L-1,L), op(-1,L-1,L)]
-    # krs_operatos = [np.eye(2**L), op(+1,0,L), N_0, np.eye(2**L) - N_L, op(+1,0,L) @ (np.eye(2**L) - N_L), N_0 @ (np.eye(2**L) - N_L), op(-1,L-1,L), op(+1,0,L) @ op(-1,L-1,L), N_0 @ op(-1,L-1,L)]
+    output_N = np.empty((max_time_steps, L), dtype=np.float64) #[]
+    output_J = np.empty((max_time_steps, 2*L-Lx-Ly, 3), dtype=np.float64) #[]
+    # output_C  = np.empty((max_time_steps, L, L), dtype=np.complex128) #[]
+    # output_NN = np.empty((max_time_steps, L, L), dtype=np.float64) #[]
     
-    if hermitian_kraus:
-        X_0 = np.eye(2**L) 
-        X_L = np.eye(2**L) 
-    else:
-        X_0 = op(+1, 0, L) + op(-1, 0, L) 
-        X_L = op(+1, L-1, L) + op(-1, L-1, L) 
-    
-    krs_operatos = [np.eye(2**L), X_0 @ (np.eye(2**L) - N_0), N_0, 
-                    np.eye(2**L) - N_L, X_0 @ (np.eye(2**L) - N_0) @ (np.eye(2**L) - N_L), N_0 @ (np.eye(2**L) - N_L),
-                    X_L @ N_L, X_0 @ (np.eye(2**L) - N_0) @ X_L @ N_L, N_0 @ X_L @ N_L ]
+    kraus_indexes = np.empty((max_time_steps,), dtype=np.int8) #[]
+    for step in range(max_time_steps):
+        
+        # obsrv = function(ini_state, (Lx, Ly), **Kwargs)    # output_array.append(obsrv)        
+        # obsr_C = hopping_correlation(ini_state, (Lx, Ly))
+        # output_C[step] = obsr_C         
+        # obsr_NN = density_correlation(ini_state, (Lx, Ly))
+        # output_NN[step] = obsr_NN         
+        obsr_N = particle_counts(ini_state, (Lx, Ly), **Kwargs)
+        output_N[step] = obsr_N        
+        obsr_J = resolved_currents_dict(ini_state, (Lx, Ly), **Kwargs)
+        output_J[step] = obsr_J     
+        
+        if circ_simu:
+            ini_state = sps.linalg.expm_multiply(-1j* dt * ham1, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt * ham2, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt * ham3, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt * ham4, ini_state) #type: ignore
+        else:
+            ini_state = sps.linalg.expm_multiply(-1j* dt * ham, ini_state) #type:ignore 
 
-    particle_In = [0, 1, 0, 0, 1, 0, 0, 1, 0]
-    particle_Out = [0, 0, 0, 0, 0, 0, -1, -1, -1]
-    
-    output_array = []
-
-    # kraus_counts = []
-    kraus_indexes = []
-    kraus_probabilities = []
-    kraus_norms = []
-    
-    in_flow = []
-    out_flow = []
-
-    for time in time_list:
+        n0 = (ini_state @ N_0 @ ini_state.conj() ).real 
+        nL = (ini_state @ N_L @ ini_state.conj() ).real 
+        n0nL = (ini_state @ N_0 @ N_L @ ini_state.conj() ).real
         
-        obsrv = function(ini_state, (Lx, Ly), **Kwargs)
-        output_array.append(obsrv)        
+        krs_probs = [(1-K_rate)**2, K_rate*(1-K_rate)*(1-n0), K_rate*(1-K_rate)*n0,
+                    K_rate*(1-K_rate)*(1-nL), K_rate*K_rate*(1-n0-nL+n0nL), K_rate*K_rate*(n0-n0nL),
+                    K_rate*(1-K_rate)*nL, K_rate*K_rate*(nL-n0nL), K_rate*n0nL ]
         
-        ini_state = U_dt @ ini_state
-        
-        
-        n_0 = (ini_state @ N_0 @ ini_state.conj() ).real 
-        n_L = (ini_state @ N_L @ ini_state.conj() ).real 
-
-        kr_in = [1-K_rate, K_rate*(1-n_0), K_rate*n_0]
-        kr_out = [1-K_rate, K_rate*(1-n_L), K_rate*n_L]
-        
-        krs_prbb = np.array([ a*b for a in kr_in for b in kr_out])
-        krs_rates = np.cumsum(krs_prbb)
-        
+        krs_rates = np.cumsum(krs_probs)
         
         coin = np.random.uniform(0,1)  
-        
-        index = len(krs_rates[krs_rates < coin])
-        ini_state = krs_operatos[index] @ ini_state
-        
-        
-        norm = np.real(np.sqrt( np.real(ini_state @ ini_state.conj()) ))
-        
-        ini_state = 1/norm * ini_state
-        
-        # kraus_counts.append([krs_prbb[index], norm])  
-        index_set = np.zeros((9,), dtype=np.int32)
-        index_set[index] = 1
-         
-        kraus_indexes.append(index_set)  
-        kraus_probabilities.append(krs_prbb[index])  
-        kraus_norms.append(norm)  
-        
-        in_flow.append(particle_In[index])  
-        out_flow.append(particle_Out[index])  
-
-
-    return(np.array(output_array), np.array(kraus_indexes), np.array([in_flow, out_flow]) )
-
-
-
-def new_run_simulation(time_list, dimensions, couplings, **Kwargs):
-    function = Kwargs.get('observable', particle_counts)
-    ini_state = Kwargs.get('initial_state', config_state( np.resize( [0,1], np.prod(dimensions)) ))
-    K_rate = Kwargs.get('driving_rate', 0.5)
-    hermitian_kraus = Kwargs.get('hermitian_kraus', False)
-    
-    Lx, Ly = dimensions    
-    L = Lx * Ly
-    
-    dt = time_list[-1]/len(time_list)
-    
-    ham = Hamiltonian_2d( couplings, dimensions, **Kwargs)
-    
-    U_dt = sps.linalg.expm(-1j * ham *dt) # type: ignore
-
-    N_0 = op(+1, 0, L) @ op(-1, 0, L) 
-    N_L = op(+1, L-1, L) @ op(-1, L-1, L) 
-
-    ini_state = ini_state.toarray()   
-    
-    # krs_operatos = [np.eye(2**L), op(+1,0,L), np.eye(2**L), np.eye(2**L), op(+1,0,L), np.eye(2**L), op(-1,L-1,L), op(+1,0,L) @ op(-1,L-1,L), op(-1,L-1,L)]
-    # krs_operatos = [np.eye(2**L), op(+1,0,L), N_0, np.eye(2**L) - N_L, op(+1,0,L) @ (np.eye(2**L) - N_L), N_0 @ (np.eye(2**L) - N_L), op(-1,L-1,L), op(+1,0,L) @ op(-1,L-1,L), N_0 @ op(-1,L-1,L)]
-    
-    if hermitian_kraus:
-        X_0 = np.eye(2**L) 
-        X_L = np.eye(2**L) 
-    else:
-        X_0 = op(+1, 0, L) + op(-1, 0, L) 
-        X_L = op(+1, L-1, L) + op(-1, L-1, L) 
-    
-    krs_operatos = [np.eye(2**L), X_0 @ (np.eye(2**L) - N_0), N_0, 
-                    np.eye(2**L) - N_L, X_0 @ (np.eye(2**L) - N_0) @ (np.eye(2**L) - N_L), N_0 @ (np.eye(2**L) - N_L),
-                    X_L @ N_L, X_0 @ (np.eye(2**L) - N_0) @ X_L @ N_L, N_0 @ X_L @ N_L ]
-
-    particle_In = [0, 1, 0, 0, 1, 0, 0, 1, 0]
-    particle_Out = [0, 0, 0, 0, 0, 0, -1, -1, -1]
-
-    output_array_1 = []
-    output_array_2 = []
-
-    
-    for time in time_list:
                 
-        obsrv1 = particle_counts(ini_state, (Lx, Ly), **Kwargs)
-        output_array_1.append(obsrv1)        
-        obsrv2 = resolved_currents_dict(ini_state, (Lx, Ly), **Kwargs)
-        output_array_2.append(obsrv2)        
-        
-        ini_state = U_dt @ ini_state
-        
-        
-        n_0 = (ini_state @ N_0 @ ini_state.conj() ).real 
-        n_L = (ini_state @ N_L @ ini_state.conj() ).real 
-
-        kr_in = [1-K_rate, K_rate*(1-n_0), K_rate*n_0]
-        kr_out = [1-K_rate, K_rate*(1-n_L), K_rate*n_L]
-        
-        krs_prbb = np.array([ a*b for a in kr_in for b in kr_out])
-        krs_rates = np.cumsum(krs_prbb)
-        
-        
-        coin = np.random.uniform(0,1)  
-        
         index = len(krs_rates[krs_rates < coin])
-        ini_state = krs_operatos[index] @ ini_state
+        ini_state = krs_function(index, L) @ ini_state
         
-        
-        norm = np.real(np.sqrt( np.real(ini_state @ ini_state.conj()) ))
+        norm = np.linalg.norm(ini_state) #np.real(np.sqrt( np.real(ini_state @ ini_state.conj()) ))
         
         ini_state = 1/norm * ini_state
-
-    return(np.array(output_array_1), np.array(output_array_2) )
+        
+        ##### ~ gathering kraus stats
+        kraus_indexes[step] = index # kraus_indexes.append(index) #index_set)  
+    
+    # return(output_C, output_NN, kraus_indexes)
+    return(output_N, output_J, kraus_indexes)
 
