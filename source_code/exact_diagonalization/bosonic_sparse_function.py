@@ -1,10 +1,13 @@
 import numpy as np
 import scipy.sparse as sps
 import functools as ft
+import sys
 # import time as tt
 # import matplotlib.pyplot as plt
 # from numba import njit, prange
 # from numba import njit, prange
+sys.path.append('/gpfs01/home/ppzaj/python_projects/Quantinuum_Driven_Boundaries/source_code/') 
+from basic_functions import *  # type: ignore
 
 ###################################################################################################################################################################################
 ################################################################################## Basic functions ################################################################################
@@ -228,19 +231,36 @@ def Ut_dens(dt, e_values, e_vectors):
 
 
 def particle_counts(input_state, dimensions, **kwargs):
+    sngl_sht = kwargs.get('single_shot', False)
     
     Lx, Ly = dimensions
     L = Lx * Ly
     
-    # input_state = input_state.toarray()
-    
     Ns = np.zeros((L,) , dtype=np.float64) 
     for n in range(L):    
-        n_th = op(+1,n,L) @ op(-1,n,L) 
+        N_th = op(+1,n,L) @ op(-1,n,L) 
         # Ns[n] += 1 - (input_state @ n_th @ input_state.conj() ).real
-        Ns[n] += np.real(input_state.conj() @ n_th @ input_state )
-        
-    return(Ns) #np.reshape(Ns, (Ly, Lx)) )
+        n_th = (input_state @ N_th @ input_state.conj() ).real
+    
+        if sngl_sht:
+            Ns[n] += single_shot(n_th, 0.0, 1.0)
+        else:
+            Ns[n] += n_th
+    
+    return(Ns)
+
+
+
+# def particle_counts(input_state, dimensions, **kwargs):
+#     Lx, Ly = dimensions
+#     L = Lx * Ly
+#     # input_state = input_state.toarray()
+#     Ns = np.zeros((L,) , dtype=np.float64) 
+#     for n in range(L):    
+#         n_th = op(+1,n,L) @ op(-1,n,L) 
+#         # Ns[n] += 1 - (input_state @ n_th @ input_state.conj() ).real
+#         Ns[n] += np.real(input_state.conj() @ n_th @ input_state )        
+#     return(Ns) #np.reshape(Ns, (Ly, Lx)) )
 
 
 
@@ -259,27 +279,48 @@ def particle_counts(input_state, dimensions, **kwargs):
 
 
 def resolved_currents_dict(input_state, dimensions, **kwargs):
-    B_field = kwargs.get('magnetic_field', 0.0)
+    magnetic_field = kwargs.get('magnetic_field', 0.0)
+    sngl_sht = kwargs.get('single_shot', False)
 
-    # print(" ***** magnetic field is :", B_field)
-    
     Lx, Ly = dimensions
-    L = Lx * Ly
+    L = Lx*Ly
 
-    peier = lambda x: np.exp( 1j * B_field * x )     
-    indexes = lattice_edges(Lx, Ly)    
+    peier = lambda x: np.exp( 1j * magnetic_field * x )
 
-    J_array = np.empty((2*L-Lx-Ly, 3), dtype=np.float64) # [] 
+    indexes = lattice_edges(Lx, Ly)
+
+    J_array = np.empty((2*L-Lx-Ly, 3)) 
     for indx, (row, x, y) in enumerate(indexes):        
-        # J_ij = -1j*( peier(row)* op(+1,x,L) @ op(-1,y,L) - peier(row).conj()*op(+1,y,L) @ op(-1,x,L) ) 
-        # J_array[indx] = np.array([int(x), int(y), np.real( input_state.conj() @ J_ij @ input_state )])
+        var1 = -1j* peier(row)* input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state
+        var2 = +1j* peier(-row)* input_state.conj() @ op(+1,y,L) @ op(-1,x,L) @ input_state
         
-        J_1 = input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state 
-        J_2 = input_state.conj() @ op(+1,y,L) @ op(-1,x,L) @ input_state 
-        J_ij = -1j*( peier(row) * J_1 - peier(row).conj() * J_2 ) 
+        if sngl_sht:
+            s_var_1 = single_shot( np.real(var1), -1.0, 1.0)
+            s_var_2 = single_shot( np.real(var2), -1.0, 1.0)
+            J_ij = s_var_1 + s_var_2 
+        else:
+            J_ij = var1 + var2 
+        
         J_array[indx] = np.array([int(x), int(y), np.real( J_ij )])
         
     return( J_array )
+
+
+# def resolved_currents_dict(input_state, dimensions, **kwargs):
+#     B_field = kwargs.get('magnetic_field', 0.0)    
+#     Lx, Ly = dimensions
+#     L = Lx * Ly
+#     peier = lambda x: np.exp( 1j * B_field * x )     
+#     indexes = lattice_edges(Lx, Ly)    
+#     J_array = np.empty((2*L-Lx-Ly, 3), dtype=np.float64) # [] 
+#     for indx, (row, x, y) in enumerate(indexes):        
+#         # J_ij = -1j*( peier(row)* op(+1,x,L) @ op(-1,y,L) - peier(row).conj()*op(+1,y,L) @ op(-1,x,L) ) 
+#         # J_array[indx] = np.array([int(x), int(y), np.real( input_state.conj() @ J_ij @ input_state )])
+#         J_1 = input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state 
+#         J_2 = input_state.conj() @ op(+1,y,L) @ op(-1,x,L) @ input_state 
+#         J_ij = -1j*( peier(row) * J_1 - peier(row).conj() * J_2 ) 
+#         J_array[indx] = np.array([int(x), int(y), np.real( J_ij )])
+#     return( J_array )
 
 
 

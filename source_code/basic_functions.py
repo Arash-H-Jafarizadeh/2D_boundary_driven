@@ -28,6 +28,16 @@ def random_config_sector(dims, k):
 
 
 
+def single_shot(value, min, max):
+    # sample = np.random.uniform(min, max)
+    sample = min + (max-min) * np.random.random_sample()
+    if sample < value:
+        return max
+    else:
+        return min
+
+
+
 def lattice_edges(N, M):
 
     edges = []

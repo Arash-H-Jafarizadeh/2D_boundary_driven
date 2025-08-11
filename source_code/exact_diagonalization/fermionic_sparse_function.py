@@ -90,7 +90,6 @@ def lattice_edges(N, M):
 
 
 
-
 def Hamiltonian_2d(physical, dims, **kwargs):
     PBC = kwargs.get('PBC', False)
     magnetic_field = kwargs.get('magnetic_field', 0.0)
@@ -246,23 +245,45 @@ def hraus_operator(indx, Ls):
         return sps.csr_array( N_0 @ N_L )
 
 
+
 def Ut_dens(dt, e_values, e_vectors):    
     out = e_vectors @ np.diag(np.exp(-1j * e_values * dt)) @ e_vectors.T.conj()
     return sps.csr_matrix(out)
 
 
-def particle_counts(input_state, dimensions):
+
+def particle_counts(input_state, dimensions, **kwargs):
+    sngl_sht = kwargs.get('single_shot', False)
     
     Lx, Ly = dimensions
     L = Lx * Ly
     
     Ns = np.zeros((L,) , dtype=np.float64) 
     for n in range(L):    
-        n_th = op(+1,n,L) @ op(-1,n,L) 
+        N_th = op(+1,n,L) @ op(-1,n,L) 
         # Ns[n] += 1 - (input_state @ n_th @ input_state.conj() ).real
-        Ns[n] += (input_state @ n_th @ input_state.conj() ).real
+        n_th = (input_state @ N_th @ input_state.conj() ).real
+    
+        if sngl_sht:
+            Ns[n] += single_shot(n_th,0.0,1.0)
+        else:
+            Ns[n] += n_th
+    
+    return(Ns)
+
+
+# def particle_counts(input_state, dimensions):
+    
+#     Lx, Ly = dimensions
+#     L = Lx * Ly
+    
+#     Ns = np.zeros((L,) , dtype=np.float64) 
+#     for n in range(L):    
+#         n_th = op(+1,n,L) @ op(-1,n,L) 
+#         # Ns[n] += 1 - (input_state @ n_th @ input_state.conj() ).real
+#         Ns[n] += (input_state @ n_th @ input_state.conj() ).real
         
-    return(Ns)#np.reshape(Ns, (Ly, Lx)) )
+#     return(Ns)#np.reshape(Ns, (Ly, Lx)) )
 
 
 # def resolved_currents(input_state, dimensions, **kwargs):
@@ -280,24 +301,49 @@ def particle_counts(input_state, dimensions):
 
 def currents_dict(input_state, dimensions, **kwargs):
     magnetic_field = kwargs.get('magnetic_field', 0.0)
+    sngl_sht = kwargs.get('single_shot', False)
 
     Lx, Ly = dimensions
-    L = Lx * Ly
+    L = Lx*Ly
 
     peier = lambda x: np.exp( 1j * magnetic_field * x )
 
     indexes = lattice_edges(Lx, Ly)
 
-    J_array = np.empty((2*L-Lx-Ly, 3), dtype=np.float64) #[]
+    J_array = np.empty((2*L-Lx-Ly, 3)) 
     for indx, (row, x, y) in enumerate(indexes):        
-        # J_ij = -1j*( peier(row)*op(+1,x,L) @ op(-1,y,L) - peier(row).conj() * op(+1,y,L) @ op(-1,x,L) ) 
-        # J_array[indx] = np.array([int(x), int(y), np.real( input_state @ J_ij @ input_state.conj())])
-        J_1 = input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state
-        J_2 = input_state.conj() @ op(+1,y,L) @ op(-1,x,L) @ input_state
-        J_ij = -1j*( peier(row) * J_1 - peier(row).conj() * J_2 ) 
+        var1 = -1j* peier(row)* input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state
+        var2 = +1j* peier(-row)* input_state.conj() @ op(+1,y,L) @ op(-1,x,L) @ input_state
+        
+        if sngl_sht:
+            s_var_1 = single_shot( np.real(var1), -1.0, 1.0)
+            s_var_2 = single_shot( np.real(var2), -1.0, 1.0)
+            J_ij = s_var_1 + s_var_2 
+        else:
+            J_ij = var1 + var2 
+        
         J_array[indx] = np.array([int(x), int(y), np.real( J_ij )])
-
+        
     return( J_array )
+
+
+# def currents_dict(input_state, dimensions, **kwargs):
+#     magnetic_field = kwargs.get('magnetic_field', 0.0)
+#     Lx, Ly = dimensions
+#     L = Lx * Ly
+#     peier = lambda x: np.exp( 1j * magnetic_field * x )
+#     indexes = lattice_edges(Lx, Ly)
+#     J_array = np.empty((2*L-Lx-Ly, 3), dtype=np.float64) #[]
+#     for indx, (row, x, y) in enumerate(indexes):        
+#         # J_ij = -1j*( peier(row)*op(+1,x,L) @ op(-1,y,L) - peier(row).conj() * op(+1,y,L) @ op(-1,x,L) ) 
+#         # J_array[indx] = np.array([int(x), int(y), np.real( input_state @ J_ij @ input_state.conj())])
+#         J_1 = input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state
+#         J_2 = input_state.conj() @ op(+1,y,L) @ op(-1,x,L) @ input_state
+#         J_ij = -1j*( peier(row) * J_1 - peier(row).conj() * J_2 ) 
+#         J_array[indx] = np.array([int(x), int(y), np.real( J_ij )])
+#     return( J_array )
+
+
 
 
 def hopping_correlation(input_state, dimensions):
