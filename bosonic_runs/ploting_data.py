@@ -17,44 +17,47 @@ if len(sys.argv) == 2:
         
         
 
-folder_path = "/gpfs01/home/ppzaj/python_projects/Quantinuum_Driven_Boundaries/bosonic_runs/raw_data/"
+folder_path = "/gpfs01/home/ppzaj/python_projects/Quantinuum_Driven_Boundaries/bosonic_runs/raw_data/hermit/"
 
-L_list = [5]
-p_list = [0.25]#[0.025, 0.05, 0.1, 0.2, 0.5]
-V_list = [0.0, 4.0]# [0.0, 4.0]
+L_list = [4]
+p_list = [0.0]#[0.025, 0.05, 0.1, 0.2, 0.5]
+V_list = [0.0, 2.0]# [0.0, 4.0]
 B_list = [0.0]#0.1*np.pi, 0.5*np.pi, 0.999*np.pi]
-T_list = [75]#[200, 400]
-K_list = ["MPO"] # "InfRect" # "random" # "normal" # "hermitian" 
-X_list = [100, 150, 200, 250]
+T_list = [200, 12, 13, 14]#[200, 400]
+K_list = ['HM','QC'] # "InfRect" # "random" # "normal" # "hermitian" 
+X_list = [2]
 
 # array_input = [(l,p,v,b,t,k) for l in L_list for p in p_list for v in V_list for b in B_list for t in T_list for k in K_list]
 # L_input, P_input, V_input, B_input,T_input, K_type = array_input[array_number]  
 
 array_input = [(l,p,v,b,t,k, x) for l in L_list for p in p_list for v in V_list for b in B_list for t in T_list for k in K_list for x in X_list]
-L_input, P_input, V_input, B_input,T_input, K_type, X_input = array_input[array_number]  
+L_input, P_input, V_input, B_input, T_input, K_type, X_input = array_input[array_number]  
 
 
 Lx, Ly = L_input, L_input
 L = Lx * Ly 
 
 
-time_steps = T_input
 steps_str = f'{str(T_input)[0]}e{int(np.log10(T_input))}'
-trajs_str = '8e2'
+trajs_str = '2e3'
 
 
-# data = np.load(folder_path + f"Data_L{L_input}_V{V_input:.1f}_B{B_input:.3f}_P{P_input:.2f}_T{steps_str}_N{trajs_str}_{K_type}_dict_0.npy",  allow_pickle=True).item()
-data = np.load(folder_path + f"Data_L{L_input}_V{V_input:.1f}_B{B_input:.3f}_P{P_input:.2f}_T{steps_str}_X{X_input:03}_N{trajs_str}_{K_type}_dict.npy",  allow_pickle=True).item()
+
+# data = np.load(folder_path + f"Data_L{L_input}_V{V_input:.1f}_B{B_input:.3f}_P{P_input:.2f}_T{steps_str}_X{X_input:03}_N{trajs_str}_{K_type}_dict.npy",  allow_pickle=True).item()
+data = np.load(folder_path + f"data_L{L_input}_V{V_input:.1f}_B{B_input:.3f}_P{P_input:.2f}_T{steps_str}_N{trajs_str}_{K_type}_A{X_input:04}.npy",  allow_pickle=True).item()
     
 N_data = data['density']#[0]
 # N_data_std = data['density'][1]
 J_data = data['current']#[0]
 # J_data_std = data['current'][1]
-dtt = 0.1#data['dt']
-max_t = data['time_steps']
-num_traj = data['trajectory']
 
-max_time = time_steps * dtt
+# num_traj = data['trajectory']
+
+dtt = P_input / 2.0 #data['dt']
+max_t = T_input #data['time_steps']
+
+# t_data = np.linspace(0, T_input * dtt, num = T_input)
+t_data = np.cumsum([1,1,1,0.5,0.5,0.5,0.25,0.25,0.25,0.1,0.1,0.1])
 
 if False: ####################################### Density profile SnapShots #######################################################################
 
@@ -86,7 +89,7 @@ if False: ####################################### Density profile SnapShots ####
     
 if True:################################# *IMPROVED* AVG Current SnapShots #######################################################################
     
-    plt_type='Avg' #'Avg' #'Fin'
+    plt_type='Fin' #'Avg' #'Fin'
     
     def connected_pairs(Lx, Ly):
         """
@@ -124,12 +127,14 @@ if True:################################# *IMPROVED* AVG Current SnapShots #####
 
 
     if plt_type == 'Fin':
-        j_data = J_data[-1] # 
-        n_data = N_data[-1] # 
-        # min_J, max_J = np.min(np.abs(J_data[:,2]), axis=None), np.max(np.abs(J_data[:,2]), axis=None)
-        title_str = rf'Last time step $t={max_t}*\delta t$ (V={V_input}, B={B_input})'
+        max_t = -1
+        j_data = J_data[max_t] # 
+        n_data = N_data[max_t] # 
+        title_str = rf'Last time step $t={T_input}*\delta t$ (V={V_input}, B={B_input})'
+        # title_str = rf'time step $t={max_t}*\delta t$ (V={V_input}, B={B_input})'
         # file_name_str = f"BOS_final_time_snapp_L{L_input}_V{V_input}_B{B_input:.1f}_P{P_input:.2f}_T{steps_str}_N{trajs_str}_{K_type}.pdf"    
-        file_name_str = f"BOS_final_time_snapp_L{L_input}_V{V_input}_B{B_input:.1f}_P{P_input:.2f}_T{steps_str}_X{X_input:03}_N{trajs_str}_{K_type}.pdf"    
+        file_name_str = f"BOS_final_snap_L{L_input}_V{V_input}_B{B_input:.1f}_P{P_input:.2f}_T{steps_str}_X{X_input:03}_N{trajs_str}_{K_type}.pdf"    
+        # file_name_str = f"BOS_final_snap_L{L_input}_V{V_input}_B{B_input:.1f}_P{P_input:.2f}_T{steps_str}_t{max_t}_N{trajs_str}_{K_type}.pdf"    
         
     if plt_type == 'Avg':
         j_data = np.mean(J_data[-5:], axis=0)  
@@ -137,7 +142,7 @@ if True:################################# *IMPROVED* AVG Current SnapShots #####
         # min_J, max_J = np.min(np.abs(J_data[:,2]), axis=None), np.max(np.abs(J_data[:,2]), axis=None)
         title_str = rf'Last 5 time steps averaged (V={V_input}, B={B_input})'
         # file_name_str = f"BOS_averg_time_snapp_L{L_input}_V{V_input}_B{B_input:.1f}_P{P_input:.2f}_T{steps_str}_N{trajs_str}_{K_type}.pdf"
-        file_name_str = f"BOS_averg_time_snapp_L{L_input}_V{V_input}_B{B_input:.1f}_P{P_input:.2f}_T{steps_str}_X{X_input:03}_N{trajs_str}_{K_type}.pdf"
+        file_name_str = f"BOS_averg_snap_L{L_input}_V{V_input}_B{B_input:.1f}_P{P_input:.2f}_T{steps_str}_X{X_input:03}_N{trajs_str}_{K_type}.pdf"
     
     
     
@@ -230,7 +235,6 @@ if True: ####################################### N time Plots all inputs #######
     # num_traj = 20000 
     # max_time = dtt * max_t
     
-    t_data = np.linspace(0, max_time, num = time_steps)
 
     # sem = 5* np.sqrt( np.abs(N_data_std - N_data**2 )) / np.sqrt(num_traj, dtype=np.float64) #* np.sqrt(num_traj/(num_traj-1) )    
     
@@ -272,8 +276,6 @@ if True: ####################################### J time Plots all p's ##########
         return pairs
 
     
-    # max_time = dtt * max_t
-    t_data = np.linspace(0, max_time, num = time_steps)
 
     # sem = 5* np.sqrt( np.abs(J_data_std - J_data**2 )) / np.sqrt(num_traj) #* np.sqrt(num_traj/(num_traj-1) )    
     

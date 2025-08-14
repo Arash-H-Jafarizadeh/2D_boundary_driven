@@ -42,16 +42,16 @@ save_path = "fermionic_runs/raw_data/s_data/"
 
 
 
-num_traj = 100
+num_traj = 2000
 num_traj_exp=f'{str(num_traj)[0]}e{int(np.log10(num_traj))}'
 
 
 L_list = [4]
-p_list = [0.05, 0.1, 0.25]
-V_list = [0.1, 2.0]
-B_list = [0.0]#*np.pi, 0.5*np.pi]#, 0.5*np.pi, 0.9999*np.pi]
-T_list = [50, 100]
-S_list = ["dephasing","injecting"]
+p_list = [0.0]
+V_list = [0.0]#, 2.0]
+B_list = [0.0*np.pi, 0.5*np.pi, 1.0*np.pi]
+T_list = [12, 13, 14]
+S_list = [True]
 # D_list = [0.05, 0.1, 0.25]
 
 # array_input = [(l, p, v, b, t, d) for l in L_list for p in p_list for v in V_list for b in B_list for t in T_list]
@@ -64,10 +64,49 @@ Vs, Js = input_V, 1.0
 Lx, Ly = input_L, input_L
 Ls = Lx*Ly
 
-dt = input_p 
+# dt = input_p / 2.0
 
-time_steps = input_T
-time_steps_exp=f'{str(time_steps)[0]}e{int(np.log10(time_steps))}' #int(np.log10(time_steps))
+if input_T == 200:
+    input_pp = 0.2
+    dtt = 0.1
+    evo = 'UNI_1' #
+    time_steps = input_T
+    time_steps_exp=f'{str(time_steps)[0]}e{int(np.log10(time_steps))}'
+    
+    input_p, dt = 0.2, 0.1
+
+if input_T == 12:
+    input_pp = 1.0
+    dtt = 0.5
+    evo = 'UNI_2' #
+    time_steps = input_T
+    time_steps_exp=f'{str(time_steps)[0]}e{int(np.log10(time_steps))}'
+    
+    input_p, dt = 1.0, 0.5
+
+if input_T == 13:
+    dtt = [1,1,1,1,0.5,0.5,0.5,0.5,0.1,0.1,0.1,0.1]
+    input_pp = [1,1,1,1,1,1,1,1,0.2,0.2,0.2,0.2]
+    evo = 'VAR_1' # 'UNI' #
+    time_steps = 12
+    time_steps_exp=f'{str(time_steps)[0]}e{int(np.log10(time_steps))}'
+
+    input_p, dt = 0.0, 0.0
+
+if input_T == 14:    
+    dtt = [1,1,1,0.5,0.5,0.5,0.25,0.25,0.25,0.1,0.1,0.1]
+    input_pp = [1,1,1,1,1,1,0.5,0.5,0.5,0.2,0.2,0.2]
+    evo = 'VAR_2' # 'UNI' #
+    time_steps = 12
+    time_steps_exp=f'{str(time_steps)[0]}e{int(np.log10(time_steps))}'
+
+    input_p, dt = 0.0, 0.0
+    
+
+# time_steps = input_T
+# time_steps_exp=f'{str(time_steps)[0]}e{int(np.log10(time_steps))}'
+# simu_type = 'dephasing' if input_S else "injection"
+# evo = 'VAR' # 'UNI' #
 
 print(f" ***** array job {array_number} for dt={input_p}, p={0.25}, size=({Lx}x{Ly}), T={time_steps} B={input_B} and V={input_V} ***** ")
 print("")
@@ -80,18 +119,23 @@ def init_pool_processes():
 def single_trajectory(seed):
     ini_conf = np.random.choice([0, 1], size=Ls)
     
+    ini_conf[0] = 1
+    ini_conf[-1] = 0
+    
     print(f"trajectory {seed:05}th running on PID {os.getpid()} with ini_state={ini_conf}", flush=True)
     
-    # loop_N, loop_J, loop_k = sfer.normal_simulation( time_steps, (Lx, Ly), (input_V, Js),  
-    loop_C, loop_NN, loop_k = sfer.circuit_simulation( time_steps, (Lx, Ly), (input_V, Js), 
-                                                    driving_rate=0.25, 
-                                                    dt=dt, 
-                                                    initial_state=ini_conf, 
+    # loop_C, loop_NN, loop_k = sfer.circuit_simulation( time_steps, (Lx, Ly), (input_V, Js), 
+    loop_N, loop_J, loop_k = sfer.normal_simulation(time_steps, (Lx, Ly), (input_V, Js),  
+                                                    dt=dtt,
+                                                    driving_rate=input_pp,
+                                                    initial_state=ini_conf,
                                                     magnetic_field = input_B,
-                                                    kraus_function_type = input_S,
+                                                    circuit_simulation = True,
+                                                    dephasing_kraus_type = False,
                                                     )
     
-    return(loop_C, loop_NN, loop_k)
+    # return(loop_C, loop_NN, loop_k)
+    return(loop_N, loop_J, loop_k)
 
 
 
@@ -102,47 +146,42 @@ if __name__ == '__main__':
     print(f"Python script will create a pool of {num_processes} processes.")
     t_0 = tt.time()        
     
-    # N_avg = np.empty((num_traj, time_steps, Ls), dtype=np.float64)    # N_sq_avg = np.empty((num_traj, time_steps, Ls), dtype=np.float64)
-    # J_avg = np.empty((num_traj, time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)    # J_sq_avg = np.empty((num_traj, time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)
+    N_avg = np.empty((num_traj, time_steps, Ls), dtype=np.float64)    # N_sq_avg = np.empty((num_traj, time_steps, Ls), dtype=np.float64)
+    J_avg = np.empty((num_traj, time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)    # J_sq_avg = np.empty((num_traj, time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)
     
-    C_avg = np.empty((num_traj, time_steps, Ls, Ls), dtype=np.complex128)
-    NN_avg = np.empty((num_traj, time_steps, Ls, Ls), dtype=np.float64)
-    # NN_sq_avg = np.empty((num_traj, time_steps, Ls, Ls), dtype=np.float64)
+    # C_avg = np.empty((num_traj, time_steps, Ls, Ls), dtype=np.complex128)
+    # NN_avg = np.empty((num_traj, time_steps, Ls, Ls), dtype=np.float64)    # NN_sq_avg = np.empty((num_traj, time_steps, Ls, Ls), dtype=np.float64)
     
     results_krs = np.empty((num_traj, time_steps), dtype=np.int8)
     
     with mp.Pool(processes=num_processes, initializer=init_pool_processes) as pool:
-        # for indx, (N,J,K, CC,NN) in enumerate( pool.map(single_trajectory, range(num_traj)) ):
-        for indx, (C,NN,K) in enumerate( pool.map(single_trajectory, range(num_traj)) ):
+        # for indx, (C,NN,K) in enumerate( pool.map(single_trajectory, range(num_traj)) ):
+        for indx, (N,J,K) in enumerate( pool.map(single_trajectory, range(num_traj)) ):
             print(f"  - got result of {indx}")
-            # N_avg[indx] = N             # N_sq_avg[indx] = N**2 
-            # J_avg[indx] = J             # J_sq_avg[indx] = J**2 
+            N_avg[indx] = N             # N_sq_avg[indx] = N**2 
+            J_avg[indx] = J             # J_sq_avg[indx] = J**2 
             
-            C_avg[indx] = C 
-            NN_avg[indx] = NN 
-            # NN_sq_avg[indx] = NN**2 
+            # C_avg[indx] = C 
+            # NN_avg[indx] = NN            # NN_sq_avg[indx] = NN**2 
             
             results_krs[indx] = K
             
     print(f"- Time for {num_processes} CPUs and size=({Lx},{Ly}), dt={input_p} p={0.25} and {num_traj} was:", tt.time()-t_0)
     print("")
 
-    # N_avg = np.average(N_avg, axis=0)    # N_sq_avg = np.average(N_sq_avg, axis=0)    # N_DATA = np.concatenate(([N_avg],[N_sq_avg]), axis=0)
-    # J_avg = np.average(J_avg, axis=0)    # J_sq_avg = np.average(J_sq_avg, axis=0)    # J_DATA = np.concatenate(([J_avg],[J_sq_avg]), axis=0)
+    N_avg = np.average(N_avg, axis=0)    # N_sq_avg = np.average(N_sq_avg, axis=0)    # N_DATA = np.concatenate(([N_avg],[N_sq_avg]), axis=0)
+    J_avg = np.average(J_avg, axis=0)    # J_sq_avg = np.average(J_sq_avg, axis=0)    # J_DATA = np.concatenate(([J_avg],[J_sq_avg]), axis=0)
     
-    C_avg = np.average(C_avg, axis=0)
-    
-    NN_avg = np.average(NN_avg, axis=0)
-    # NN_sq_avg = np.average(NN_sq_avg, axis=0)
-    # NN_DATA = np.concatenate(([NN_avg],[NN_sq_avg]), axis=0)
+    # C_avg = np.average(C_avg, axis=0)
+    # NN_avg = np.average(NN_avg, axis=0)    # NN_sq_avg = np.average(NN_sq_avg, axis=0)    # NN_DATA = np.concatenate(([NN_avg],[NN_sq_avg]), axis=0)
 
-    N_avg = np.real(np.diagonal(C_avg, axis1=1, axis2=2))
-    J_avg = np.array([current_from_correlation(C_avg[t], (Lx,Ly), B_field = input_B) for t in range(time_steps)]) # type: ignore
+    # N_avg = np.real(np.diagonal(C_avg, axis1=1, axis2=2))
+    # J_avg = np.array([current_from_correlation(C_avg[t], (Lx,Ly), B_field = input_B) for t in range(time_steps)]) # type: ignore
     
     if ploting: ################################################# PLOTING ########################################################
  
         ###### early plot of densities ######
-        fig, ax = plt.subplots(2, 1, figsize=(8, 12), dpi=300, sharex=True,  layout='constrained',)
+        fig, ax = plt.subplots(2, 1, figsize=(8, 12), dpi=200, sharex=True,  layout='constrained',)
         
         colors = distinct_colors(Ls)
         for pl in range(Ls):
@@ -169,21 +208,24 @@ if __name__ == '__main__':
         ax[1].set_xlabel('time steps',fontsize=14)
         # fig.savefig(plot_path + f"current_L{input_L:01}_P{input_p:.2f}_V{input_V:.1f}_B{input_B:.3f}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:03}_J{job_number}.png", dpi=300, bbox_inches = 'tight')
 
-        fig.suptitle(f"plot for ({Lx}x{Ly}), p={0.25}, V={Vs}, B={input_B:.3f}, dt ={dt:.2f} (fermion)")
+        fig.suptitle(f"({Lx}x{Ly}), p={input_p}, V={Vs}, B={input_B:.3f}, dt ={dt:.2f} {evo} (fermion)")
         # fig.savefig(plot_path + f"plot_L{input_L:01}_P{input_p:.3f}_V{input_V:.1f}_B{input_B:.3f}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:03}_J{job_number}.png", dpi=200, bbox_inches = 'tight')
-        fig.savefig(plot_path + f"plot_L{input_L:01}_D{input_p:.2f}_V{input_V:.1f}_B{input_B:.3f}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:03}_J{job_number}.png", dpi=200, bbox_inches = 'tight')
-    
+        # fig.savefig(plot_path + f"plot_L{input_L:01}_D{input_p:.2f}_V{input_V:.1f}_B{input_B:.3f}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:03}_J{job_number}.png", dpi=200, bbox_inches = 'tight')
+        fig.savefig(plot_path + f"plot_L{input_L:01}_P{input_p:.2f}_D{dt:.2f}_V{input_V:.1f}_B{input_B:.3f}_T{time_steps_exp}_N{num_traj_exp}_{evo}_A{array_number:03}_J{job_number}.png", dpi=200, bbox_inches = 'tight')
+
     if saving: ######################## SAVING ##################################
 
         dict_data = {
-            'hopping_correlation':C_avg,
-            'density_correlation':NN_avg,#NN_DATA,
-            # 'density':N_DATA,
-            # 'current':J_DATA,
-            'krauses':results_krs }
+            # 'hopping_correlation':C_avg,
+            # 'density_correlation':NN_avg,#NN_DATA,
+            'density':N_avg,
+            'current':J_avg,
+            'krauses':results_krs,
+            }
 
         # arcivo = open(save_path + f'data_L{input_L:01}_V{input_V:.1f}_B{input_B:.3f}_P{input_p:.3f}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:04}.npy', 'wb')  
-        arcivo = open(save_path + f'data_L{input_L:01}_V{input_V:.1f}_B{input_B:.2f}_D{input_p:.3f}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:04}.npy', 'wb')  
+        arcivo = open(save_path + f'data_L{input_L:01}_V{input_V:.1f}_B{input_B:.3f}_P{input_p:.2f}_T{time_steps_exp}_N{num_traj_exp}_QC_{evo}.npy', 'wb')  
+        # arcivo = open(save_path + f'data_L{input_L:01}_V{input_V:.1f}_B{input_B:.2f}_D{input_p:.3f}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:04}.npy', 'wb')  
         np.save(arcivo, dict_data) # type: ignore
         arcivo.close()
 

@@ -35,10 +35,12 @@ print(f" **** Python script will create a pool of {num_processes} processes ****
 ploting = True
 plot_path = "bosonic_runs/plots/normal/"
 # plot_path = "bosonic_runs/plots/hermit/"
+# plot_path = "bosonic_runs/plots/single_shot/"
 
 saving = True
 save_path = "bosonic_runs/raw_data/normal/"
 # save_path = "bosonic_runs/raw_data/hermit/"
+# save_path = "bosonic_runs/raw_data/single_shot/"
 
 
 
@@ -51,8 +53,8 @@ P_list = [0.2, 0.5, 0.8]
 V_list = [0.0, 2.0]
 B_list = [0.0]#0.5*np.pi, 0.999*np.pi]
 T_list = [100]#, 200]#, 400]
-C_list = [False, True]
-M_list = [False, True]  
+C_list = [False]
+M_list = [False]#, True]  
 
 array_input = [(l, p, v, b, t, c, m) for l in L_list for p in P_list for v in V_list for b in B_list for t in T_list for c in C_list for m in M_list]
 input_L, input_P, input_V, input_B, input_T, input_C, input_M = array_input[np.mod(array_number, len(array_input))] # input_p = p_list[array_number]
@@ -200,7 +202,7 @@ if __name__ == '__main__':
             'current':J_avg, #J_DATA,
             'krauses':results_krs }
 
-        arcivo = open(save_path + f'data_L{input_L:01}_V{input_V:.1f}_B{input_B:.2f}_P{input_P:.2f}_D{dt:.2f}_{U_type}_{measurment_type}_T{time_steps_exp}_N{num_traj_exp}_A{array_number:04}.npy', 'wb')  
+        arcivo = open(save_path + f'data_L{input_L:01}_V{input_V:.1f}_B{input_B:.2f}_P{input_P:.2f}_D{dt:.2f}_T{time_steps_exp}_N{num_traj_exp}_{U_type}_{measurment_type}_A{array_number:04}.npy', 'wb')  
         np.save(arcivo, dict_data) # type: ignore
         arcivo.close()
 

@@ -312,7 +312,7 @@ def currents_dict(input_state, dimensions, **kwargs):
 
     J_array = np.empty((2*L-Lx-Ly, 3)) 
     for indx, (row, x, y) in enumerate(indexes):        
-        var1 = -1j* peier(row)* input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state
+        var1 = -1j* peier(+row)* input_state.conj() @ op(+1,x,L) @ op(-1,y,L) @ input_state
         var2 = +1j* peier(-row)* input_state.conj() @ op(+1,y,L) @ op(-1,x,L) @ input_state
         
         if sngl_sht:
@@ -465,12 +465,11 @@ def circuit_simulation(max_time_steps, system_dimensions, physical_couplings, **
     # function = Kwargs.get('observable', particle_counts)
     ini_config = Kwargs.get('initial_state', np.resize( [0,1], np.prod(system_dimensions)) )
     krs_function_type = Kwargs.get('kraus_function_type', "injecting")    
-    K_rate = Kwargs.get('driving_rate', 0.5)
-    dt = Kwargs.get('dt', 0.03) #Kwargs.get('dt', time_list[-1]/len(time_list))
+    K_rate = Kwargs.get('driving_rate', 0.25)
+    dt = Kwargs.get('dt', 0.33) #Kwargs.get('dt', time_list[-1]/len(time_list))
     
     Lx, Ly = system_dimensions    
     L = Lx * Ly   
-
     
     if krs_function_type == "dephasing":
         krs_function = hraus_operator
@@ -537,16 +536,31 @@ def circuit_simulation(max_time_steps, system_dimensions, physical_couplings, **
 
 def normal_simulation(max_time_steps, dimensions, couplings, **Kwargs):
     # function = Kwargs.get('observable', particle_counts)
+    # krs_function = Kwargs.get('kraus_function', kraus_operator)    
+    krs_type = Kwargs.get('dephasing_kraus_type', False)
+    circ_simu = Kwargs.get('circuit_simulation', False)
     ini_config = Kwargs.get('initial_state', np.resize( [0,1], np.prod(dimensions)) )
-    krs_function = Kwargs.get('kraus_function', kraus_operator)    
     K_rate = Kwargs.get('driving_rate', 0.5)
     dt = Kwargs.get('dt', 0.03)
     
+    if np.array(dt).size != max_time_steps:
+        dt = np.resize(dt, max_time_steps)
+    if np.array(K_rate).size != max_time_steps:
+        K_rate = np.resize(K_rate, max_time_steps)
+    
+    if krs_type:
+        krs_function = hraus_operator
+    else:
+        krs_function = kraus_operator
+    
+    if circ_simu:
+        ham1, ham2, ham3, ham4 = trotter_circuit_2d(couplings, dimensions, **Kwargs)
+    else:    
+        ham = Hamiltonian_2d(couplings, dimensions, **Kwargs)
+
     Lx, Ly = dimensions    
     L = Lx * Ly   
     
-    ham = Hamiltonian_2d( couplings, dimensions, **Kwargs)
-
     N_0 = op(+1, 0, L) @ op(-1, 0, L) 
     N_L = op(+1, L-1, L) @ op(-1, L-1, L) 
 
@@ -574,16 +588,22 @@ def normal_simulation(max_time_steps, dimensions, couplings, **Kwargs):
         # obsr_NN = density_correlation(ini_state, (Lx, Ly))
         # output_NN[step] = obsr_NN #.append(obsr_J)        
         
-        ini_state = sps.linalg.expm_multiply(-1j* dt * ham, ini_state) #type:ignore #U_dt @ ini_state
+        if circ_simu:
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham1, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham2, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham3, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham4, ini_state) #type: ignore
+        else:
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham, ini_state) #type:ignore 
 
 
         n0 = (ini_state.conj() @ N_0 @ ini_state ).real 
         nL = (ini_state.conj() @ N_L @ ini_state ).real 
         n0nL = (ini_state.conj() @ N_0 @ N_L @ ini_state ).real
         
-        krs_probs = [(1-K_rate)**2, K_rate*(1-K_rate)*(1-n0), K_rate*(1-K_rate)*n0,
-                    K_rate*(1-K_rate)*(1-nL), K_rate*K_rate*(1-n0-nL+n0nL), K_rate*K_rate*(n0-n0nL),
-                    K_rate*(1-K_rate)*nL, K_rate*K_rate*(nL-n0nL), K_rate*n0nL ]
+        krs_probs = [(1-K_rate[step])**2, K_rate[step]*(1-K_rate[step])*(1-n0), K_rate[step]*(1-K_rate[step])*n0,
+                    K_rate[step]*(1-K_rate[step])*(1-nL), K_rate[step]*K_rate[step]*(1-n0-nL+n0nL), K_rate[step]*K_rate[step]*(n0-n0nL),
+                    K_rate[step]*(1-K_rate[step])*nL, K_rate[step]*K_rate[step]*(nL-n0nL), K_rate[step]*n0nL ]
         
         krs_rates = np.cumsum(krs_probs)
         

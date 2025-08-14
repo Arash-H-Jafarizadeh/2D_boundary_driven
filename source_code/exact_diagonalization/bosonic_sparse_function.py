@@ -436,14 +436,14 @@ def sparse_simulation(max_time_steps, system_dimensions, physical_couplings, **K
 
 
 
-
+########## needs fixing
 def circuit_simulation(max_time_steps, system_dimensions, physical_couplings, **Kwargs):
     # function = Kwargs.get('observable', particle_counts)
     ini_config = Kwargs.get('initial_state', np.resize( [0,1], np.prod(system_dimensions)) )
     krs_function_type = Kwargs.get('kraus_function_type', "injecting")    
     # krs_function = Kwargs.get('kraus_function', kraus_operator)    
-    K_rate = Kwargs.get('driving_rate', 0.5)
-    dt = Kwargs.get('dt', 0.03) #Kwargs.get('dt', time_list[-1]/len(time_list))
+    K_rate = Kwargs.get('driving_rate', 0.25)
+    dt = Kwargs.get('dt', 0.23) #Kwargs.get('dt', time_list[-1]/len(time_list))
     
     Lx, Ly = system_dimensions    
     L = Lx * Ly   
@@ -584,19 +584,30 @@ def circuit_simulation(max_time_steps, system_dimensions, physical_couplings, **
 def normal_simulation(max_time_steps, system_dimensions, physical_couplings, **Kwargs):
     # function = Kwargs.get('observable', particle_counts)
     circ_simu = Kwargs.get('circuit_simulation', False)
-    krs_function = Kwargs.get('kraus_function', kraus_operator)
+    # krs_function = Kwargs.get('kraus_function', kraus_operator)
+    krs_type = Kwargs.get('dephasing_kraus_type', False)
     ini_config = Kwargs.get('initial_state', np.resize( [0,1], np.prod(system_dimensions)) )
     K_rate = Kwargs.get('driving_rate', 0.25)
     dt = Kwargs.get('dt', 0.03) #Kwargs.get('dt', time_list[-1]/len(time_list))
     
-    Lx, Ly = system_dimensions    
-    L = Lx * Ly   
+    if np.array(dt).size != max_time_steps:
+        dt = np.resize(dt, max_time_steps)
+    if np.array(K_rate).size != max_time_steps:
+        K_rate = np.resize(K_rate, max_time_steps)
+    
+    if krs_type:
+        krs_function = hraus_operator
+    else:
+        krs_function = kraus_operator
     
     if circ_simu:
         ham1, ham2, ham3, ham4 = trotter_circuit_2d(physical_couplings, system_dimensions, **Kwargs)
     else:    
         ham = Hamiltonian_2d( physical_couplings, system_dimensions, **Kwargs)
 
+    Lx, Ly = system_dimensions    
+    L = Lx * Ly   
+    
     N_0 = op(+1, 0, L) @ op(-1, 0, L) 
     N_L = op(+1, L-1, L) @ op(-1, L-1, L) 
 
@@ -611,30 +622,29 @@ def normal_simulation(max_time_steps, system_dimensions, physical_couplings, **K
     for step in range(max_time_steps):
         
         # obsrv = function(ini_state, (Lx, Ly), **Kwargs)    # output_array.append(obsrv)        
-        # obsr_C = hopping_correlation(ini_state, (Lx, Ly))
-        # output_C[step] = obsr_C         
-        # obsr_NN = density_correlation(ini_state, (Lx, Ly))
-        # output_NN[step] = obsr_NN         
+        # obsr_C = hopping_correlation(ini_state, (Lx, Ly))        # output_C[step] = obsr_C         
+        # obsr_NN = density_correlation(ini_state, (Lx, Ly))        # output_NN[step] = obsr_NN         
+        
         obsr_N = particle_counts(ini_state, (Lx, Ly), **Kwargs)
         output_N[step] = obsr_N        
         obsr_J = resolved_currents_dict(ini_state, (Lx, Ly), **Kwargs)
         output_J[step] = obsr_J     
         
         if circ_simu:
-            ini_state = sps.linalg.expm_multiply(-1j* dt * ham1, ini_state) #type: ignore
-            ini_state = sps.linalg.expm_multiply(-1j* dt * ham2, ini_state) #type: ignore
-            ini_state = sps.linalg.expm_multiply(-1j* dt * ham3, ini_state) #type: ignore
-            ini_state = sps.linalg.expm_multiply(-1j* dt * ham4, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham1, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham2, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham3, ini_state) #type: ignore
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham4, ini_state) #type: ignore
         else:
-            ini_state = sps.linalg.expm_multiply(-1j* dt * ham, ini_state) #type:ignore 
+            ini_state = sps.linalg.expm_multiply(-1j* dt[step] * ham, ini_state) #type:ignore 
 
         n0 = (ini_state @ N_0 @ ini_state.conj() ).real 
         nL = (ini_state @ N_L @ ini_state.conj() ).real 
         n0nL = (ini_state @ N_0 @ N_L @ ini_state.conj() ).real
         
-        krs_probs = [(1-K_rate)**2, K_rate*(1-K_rate)*(1-n0), K_rate*(1-K_rate)*n0,
-                    K_rate*(1-K_rate)*(1-nL), K_rate*K_rate*(1-n0-nL+n0nL), K_rate*K_rate*(n0-n0nL),
-                    K_rate*(1-K_rate)*nL, K_rate*K_rate*(nL-n0nL), K_rate*n0nL ]
+        krs_probs = [(1-K_rate[step])**2, K_rate[step]*(1-K_rate[step])*(1-n0), K_rate[step]*(1-K_rate[step])*n0,
+                    K_rate[step]*(1-K_rate[step])*(1-nL), K_rate[step]*K_rate[step]*(1-n0-nL+n0nL), K_rate[step]*K_rate[step]*(n0-n0nL),
+                    K_rate[step]*(1-K_rate[step])*nL, K_rate[step]*K_rate[step]*(nL-n0nL), K_rate[step]*n0nL ]
         
         krs_rates = np.cumsum(krs_probs)
         
@@ -649,7 +659,7 @@ def normal_simulation(max_time_steps, system_dimensions, physical_couplings, **K
         
         ##### ~ gathering kraus stats
         kraus_indexes[step] = index # kraus_indexes.append(index) #index_set)  
-    
+        # print("    - step: ", step, " dt: ", dt[step], " K_rate: ", K_rate[step])
     # return(output_C, output_NN, kraus_indexes)
     return(output_N, output_J, kraus_indexes)
 
