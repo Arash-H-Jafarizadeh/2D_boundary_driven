@@ -50,7 +50,7 @@ L_list = [4]
 p_list = [0.0]
 V_list = [0.0]#, 2.0]
 B_list = [0.0*np.pi, 0.5*np.pi, 1.0*np.pi]
-T_list = [12, 13, 14]
+T_list = [200, 12, 13, 14]
 S_list = [True]
 # D_list = [0.05, 0.1, 0.25]
 

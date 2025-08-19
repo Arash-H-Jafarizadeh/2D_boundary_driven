@@ -25,7 +25,7 @@ p_list = [0.2, 0.5, 0.8]
 V_list = [0.0, 2.0]
 B_list = [0.0*np.pi, 0.5*np.pi, 1.0*np.pi]
 T_list = [100] #200, 400]
-K_list = ['HM_SNG','QC_SNG']#'InfMag'] #"InfRect" #"normal" # "Hermitian" 
+K_list = ['HM_INF']#['HM_SNG','QC_SNG']#'InfMag'] #"InfRect" #"normal" # "Hermitian" 
 X_list = [0]
 
 
@@ -84,7 +84,7 @@ if __name__ == '__main__': ############################################ Read and
     # print("shape check 0: ", np.shape(C_avg),',',np.shape(NN_avg),',',np.shape(results_krs),',')
     # print("")
 
-    for indx, nome in enumerate(all_files[:3]):
+    for indx, nome in enumerate(all_files):
         print(" - file name is ", nome)
         
         # if V_input < 0:
@@ -143,7 +143,7 @@ if __name__ == '__main__': ############################################ Read and
         # arcivo = open(save_path + f'K_data_L{L_input:01}_V{V_input:.1f}_P{P_input:.2f}_T{t_step_str}_N{n_traj_str}_{krs_type}.npy', 'wb')  
         # np.save(arcivo, np.array(results_krs, dtype=np.int64))
         # arcivo.close()
-        num_files = 3
+
         steps_str = t_step_str 
         trajs_str = f'{str(num_files * num_traj)[0]}e{int(np.log10(num_files * num_traj))}'
         

@@ -127,16 +127,20 @@ def circuit_edges_2(Nx, Ny):
         for col in range(Nx):
             idx = row * Nx + col
             if col < Nx - 1 and (col + row) % 2 == 0.0 :  # Connect to right neighbor
-                edges[0].append((idx, idx + 1))
+                # edges[0].append((idx, idx + 1))
+                edges[0].append((row, idx, idx + 1))
 
             if col < Nx - 1 and (col + row) % 2 == 1.0 :  
-                edges[1].append((idx, idx + 1))
+                # edges[1].append((idx, idx + 1))
+                edges[1].append((row, idx, idx + 1))
                 
             if row < Ny - 1 and (row + col) % 2 == 0.0 :  # Connect to top neighbor
-                edges[2].append((idx, idx + Nx))
+                # edges[2].append((idx, idx + Nx))
+                edges[2].append((row, idx, idx + Nx))
 
             if row < Ny - 1 and (row + col) % 2 == 1.0 :  
-                edges[3].append((idx, idx + Nx))
+                # edges[3].append((idx, idx + Nx))
+                edges[3].append((row, idx, idx + Nx))
 
     return edges
 
@@ -151,14 +155,14 @@ def trotter_circuit_2d(coupl, dims, **KwArgs):
     Lx, Ly = dims
     L = Lx*Ly
 
-    peier_phase = lambda x: np.exp( 1j * magnetic_field * x ) # to be added to the circuit too!
+    peier = lambda x: np.exp( 1j * magnetic_field * x ) # to be added to the circuit too!
 
     indx_1,indx_2,indx_3,indx_4 = circuit_edges_2(Lx, Ly)
     
-    layer_list_1 = [-op(+1,xx,L) @ op(-1,yy,L) -op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for xx, yy in indx_1]
-    layer_list_2 = [-op(+1,xx,L) @ op(-1,yy,L) -op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for xx, yy in indx_2]
-    layer_list_3 = [-op(+1,xx,L) @ op(-1,yy,L) -op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for xx, yy in indx_3]
-    layer_list_4 = [-op(+1,xx,L) @ op(-1,yy,L) -op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for xx, yy in indx_4]    
+    layer_list_1 = [- peier(row) * op(+1,xx,L) @ op(-1,yy,L) - peier(-row) * op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for row, xx, yy in indx_1]
+    layer_list_2 = [- peier(row) * op(+1,xx,L) @ op(-1,yy,L) - peier(-row) * op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for row, xx, yy in indx_2]
+    layer_list_3 = [- peier(row) * op(+1,xx,L) @ op(-1,yy,L) - peier(-row) * op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for row, xx, yy in indx_3]
+    layer_list_4 = [- peier(row) * op(+1,xx,L) @ op(-1,yy,L) - peier(-row) * op(+1,yy,L) @ op(-1,xx,L) + V* op(+1,xx,L) @ op(-1,xx,L) @ op(+1,yy,L) @ op(-1,yy,L) for row, xx, yy in indx_4]    
     
     layer_term_1 = ft.reduce(lambda x,y:x+y, layer_list_1)
     layer_term_2 = ft.reduce(lambda x,y:x+y, layer_list_2)
