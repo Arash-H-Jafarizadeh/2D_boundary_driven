@@ -12,7 +12,9 @@ bosonic_runs/output/
 bosonic_runs/plots/
 bosonic_runs/raw_data/
 
-
+data/
+log/
+plots/
 
 *.sh
 *.npy

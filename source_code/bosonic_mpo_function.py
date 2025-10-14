@@ -84,8 +84,9 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
     ini_config = Kwargs.get('initial_state', checkerboard(system_dimensions))
     drive_rate = Kwargs.get('driving_rate', 0.001)
     dt = Kwargs.get('dt', 0.03) 
-    B_field = 0.0 #Kwargs.get('magnetic_field', 0.0)
-    
+    b_value = Kwargs.get('magnetic_field', 0.0)
+    B_field = b_value * np.pi
+        
     max_chi = Kwargs.get('chi_max', 100)
     min_svd = Kwargs.get('svd_min', 1.e-16)
     the_order = Kwargs.get('total_error_order', 2)
@@ -97,16 +98,32 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
     Vs, Js = physical_couplings
     Lx, Ly = system_dimensions
     Ls = Lx*Ly
+    mps_config = np.reshape(ini_config, (Lx,Ly,1))
 
+    if Vs == 0.0 and b_value != 0.0:
+        model_params = dict(
+            bc_MPS='finite', bc_y='open', bc_x='open', 
+            Lx = Lx, Ly = Ly, 
+            lattice='Square', #order = 'Fstyle',
+            Jx=Js, Jy=Js, U=0.0, mu=0.0, 
+            gauge='landau_y', phi=(-b_value*Ly/2, Ly), 
+            Nmax=1,
+            conserve=None, 
+            )
+ 
+        model = tenpy.HofstadterBosons(model_params) 
+ 
+    else:
+        model_params = dict(
+            bc_MPS='finite', bc_y='open', bc_x='open', 
+            Lx = Lx, Ly = Ly, 
+            lattice='Square', #order = 'Fstyle',
+            n_max = 1,
+            t=Js, V=Vs, mu = 0.0, U = 0.0,
+            conserve=None, 
+            )
 
-    model_params = dict(
-        bc_MPS='finite', bc_y='open', bc_x='open', 
-        Lx = Lx, Ly = Ly, 
-        lattice='Square', # order = 'Fstyle',
-        n_max = 1,
-        t=Js, V=Vs, mu = 0.0, U = 0.0,
-        conserve= 'parity', #'parity' 'best' 
-        )
+        model = tenpy.BoseHubbardModel(model_params) 
 
     simulation_options = dict(
         compression_method = 'SVD', #| 'variational' | 'zip_up'
@@ -121,35 +138,27 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
         preserve_norm=True,
         )
 
-
-    mps_config = np.reshape(ini_config, (Lx,Ly,1))
-    
-    model = tenpy.BoseHubbardModel(model_params) 
-
     psi = tenpy.MPS.from_lat_product_state(model.lat, mps_config )
 
     time_evolver = tenpy.algorithms.mpo_evolution.ExpMPOEvolution(psi, model, simulation_options)
-
 
     if show_memory: 
         print("  ****** memory needed: ",
               tenpy.algorithms.mpo_evolution.ExpMPOEvolution.estimate_RAM(time_evolver),
               " MB")
 
-    # mpo_N = np.zeros((time_steps, Ls), dtype=np.float64)
-    # mpo_J = np.zeros((time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)
-    mpo_C = np.zeros((time_steps, Ls, Ls), dtype=np.complex128)
-    mpo_NN = np.zeros((time_steps, Ls, Ls), dtype=np.float64)
+    mpo_N = np.zeros((time_steps, Ls), dtype=np.float64)
+    mpo_J = np.zeros((time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)
+    # mpo_C = np.zeros((time_steps, Ls, Ls), dtype=np.complex128)
+    # mpo_NN = np.zeros((time_steps, Ls, Ls), dtype=np.float64)
     mpo_k = np.zeros(time_steps, dtype=np.int16)
 
     for t_indx in range(time_steps):
         
-        # mpo_N[t_indx] = psi.expectation_value('N')
-        # mpo_J[t_indx] = currents(psi, (Lx, Ly), magnetic_field=B_field)
-
-        mpo_C[t_indx] = hopping_correlation(psi, (Lx, Ly))
-        mpo_NN[t_indx] = density_correlation(psi, (Lx, Ly))
-
+        mpo_N[t_indx] = psi.expectation_value('N')
+        mpo_J[t_indx] = currents(psi, (Lx, Ly), magnetic_field=B_field)
+        # mpo_C[t_indx] = hopping_correlation(psi, (Lx, Ly))
+        # mpo_NN[t_indx] = density_correlation(psi, (Lx, Ly))
 
         time_evolver.run()
         
@@ -169,5 +178,6 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
         mpo_k[t_indx] = index   
 
         # print(f"    -=-=-= step {t_indx:03} =-=-=- ")
-
-    return(mpo_C, mpo_NN, mpo_k)#(mpo_N, mpo_J, mpo_k)# 
+    print("  - - - final chi: ", psi.chi )
+    # return(mpo_C, mpo_NN, mpo_k)#
+    return(mpo_N, mpo_J, mpo_k)# 

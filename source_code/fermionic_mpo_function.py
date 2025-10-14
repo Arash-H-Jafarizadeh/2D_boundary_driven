@@ -84,8 +84,9 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
     ini_config = Kwargs.get('initial_state', checkerboard(system_dimensions))
     drive_rate = Kwargs.get('driving_rate', 0.01)
     dt = Kwargs.get('dt', 0.03) 
-    B_field = 0.0 #Kwargs.get('magnetic_field', 0.0)
-    
+    b_value = Kwargs.get('magnetic_field', 0.0)
+    B_field = b_value * np.pi
+        
     max_chi = Kwargs.get('chi_max', 128)
     min_svd = Kwargs.get('svd_min', 1.e-16)
     the_order = Kwargs.get('total_error_order', 2)
@@ -98,14 +99,13 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
     Lx, Ly = system_dimensions
     Ls = Lx*Ly
 
-
-    
     model_params = dict(
         bc_MPS='finite', bc_y='open', bc_x='open', 
         Lx = Lx, Ly = Ly, 
         lattice='Square', #order = 'Fstyle',
-        J=Js, V=Vs, mu=0.0,
-        conserve='parity', #'None'
+        Jx=Js, Jy=Js, v=Vs, mu=0.0, 
+        gauge='landau_y', phi=(-b_value*Ly/2, Ly), 
+        conserve='parity', 
         )
 
     # simulation_options = {
@@ -133,37 +133,34 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
         preserve_norm=True,
         )
 
-
     fer_loc_st = ["empty", "full"]
     mps_config = [fer_loc_st[j] for j in ini_config]
     mps_config = np.reshape(mps_config, (Lx,Ly,1))
     
-    model = tenpy.FermionModel(model_params) 
+    # model = tenpy.FermionModel(model_params) 
+    model = tenpy.HofstadterFermions(model_params) 
 
     psi = tenpy.MPS.from_lat_product_state(model.lat, mps_config )
 
     time_evolver = tenpy.algorithms.mpo_evolution.ExpMPOEvolution(psi, model, simulation_options)
-
 
     if show_memory: 
         print(" ****** memory needed: ",
               tenpy.algorithms.mpo_evolution.ExpMPOEvolution.estimate_RAM(time_evolver),
               " MB")
 
-    # mpo_N = np.zeros((time_steps, Ls), dtype=np.float64)
-    # mpo_J = np.zeros((time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)
+    mpo_N = np.zeros((time_steps, Ls), dtype=np.float64)
+    mpo_J = np.zeros((time_steps, 2*Ls-Lx-Ly, 3), dtype=np.float64)
+    # mpo_C = np.zeros((time_steps, Ls, Ls), dtype=np.complex128)
+    # mpo_NN = np.zeros((time_steps, Ls, Ls), dtype=np.float64)
     mpo_k = np.zeros(time_steps, dtype=np.int16)
-    
-    mpo_C = np.zeros((time_steps, Ls, Ls), dtype=np.complex128)
-    mpo_NN = np.zeros((time_steps, Ls, Ls), dtype=np.float64)
 
     for t_indx in range(time_steps):
         
-        # mpo_N[t_indx] = psi.expectation_value('N')
-        # mpo_J[t_indx] = currents(psi, (Lx, Ly), magnetic_field=B_field)
-        mpo_C[t_indx] = correlations(psi, (Lx, Ly))
-        mpo_NN[t_indx] = density_correlation(psi, (Lx, Ly))
-
+        mpo_N[t_indx] = psi.expectation_value('N')
+        mpo_J[t_indx] = currents(psi, (Lx, Ly), magnetic_field=B_field)
+        # mpo_C[t_indx] = correlations(psi, (Lx, Ly))
+        # mpo_NN[t_indx] = density_correlation(psi, (Lx, Ly))
 
         time_evolver.run()
         
@@ -181,5 +178,6 @@ def mpo_simulation(time_steps, system_dimensions, physical_couplings, **Kwargs):
         
         psi.apply_local_term(kraus_operator(index, Ls), autoJW=True, renormalize=True)
         mpo_k[t_indx] = index   
-    
-    return(mpo_C, mpo_NN, mpo_k)#(mpo_N, mpo_J, mpo_k)
+    print("  - - - final chi: ", psi.chi )
+    # return(mpo_C, mpo_NN, mpo_k)#
+    return(mpo_N, mpo_J, mpo_k)
